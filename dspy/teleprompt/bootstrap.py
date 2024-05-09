@@ -52,9 +52,8 @@ class BootstrapFewShot(Teleprompter):
         self.error_count = 0
         self.error_lock = threading.Lock()
 
-    def compile(self, student, *, teacher=None, trainset, valset=None):
+    def compile(self, student, *, teacher=None, trainset):
         self.trainset = trainset
-        self.valset = valset
 
         self._prepare_student_and_teacher(student, teacher)
         self._prepare_predictor_mappings()
@@ -124,14 +123,16 @@ class BootstrapFewShot(Teleprompter):
                     if success:
                         bootstrapped[example_idx] = True
 
-        print(f"Bootstrapped {len(bootstrapped)} full traces after {example_idx+1} examples in round {round_idx}.")
+        dspy.logger.info(
+            f"Bootstrapped {len(bootstrapped)} full traces after {example_idx + 1} examples in round {round_idx}.",
+        )
 
         # Unbootstrapped training examples
 
         self.validation = [x for idx, x in enumerate(self.trainset) if idx not in bootstrapped]
         random.Random(0).shuffle(self.validation)
 
-        self.validation = self.valset or self.validation
+        self.validation = self.validation
 
         # NOTE: Can't yet use evaluate because we need to trace *per example*
         # evaluate = Evaluate(program=self.teacher, metric=self.metric, num_threads=12)
@@ -167,7 +168,6 @@ class BootstrapFewShot(Teleprompter):
                         success = metric_val
                 else:
                     success = True
-                # print(success, example, prediction)
         except Exception as e:
             success = False
             with self.error_lock:
@@ -175,7 +175,7 @@ class BootstrapFewShot(Teleprompter):
                 current_error_count = self.error_count
             if current_error_count >= self.max_errors:
                 raise e
-            print(f"Failed to run or to evaluate example {example} with {self.metric} due to {e}.")
+            dspy.logger.error(f"Failed to run or to evaluate example {example} with {self.metric} due to {e}.")
 
         if success:
             for step in trace:
@@ -189,18 +189,18 @@ class BootstrapFewShot(Teleprompter):
 
                 try:
                     predictor_name = self.predictor2name[id(predictor)]
-                except KeyError as e:
+                except KeyError:
                     continue  # FIXME: !
 
-                    # TODO: Look closer into this. It's a bit tricky to reproduce.
-                    print(f"Failed to find predictor {predictor} in {self.predictor2name}.")
-                    print(
-                        "Are you doing this in a notebook (Jupyter)? This might be caused by redefining values by rerunning cells.",
-                    )
-                    print("Try restarting the notebook, or open an issue.")
-                    raise KeyError(
-                        f"Failed to find predictor {id(predictor)} {predictor} in {self.predictor2name}.",
-                    ) from e
+                    # # TODO: Look closer into this. It's a bit tricky to reproduce.
+                    # print(f"Failed to find predictor {predictor} in {self.predictor2name}.")
+                    # print(
+                    #     "Are you doing this in a notebook (Jupyter)? This might be caused by redefining values by rerunning cells.",
+                    # )
+                    # print("Try restarting the notebook, or open an issue.")
+                    # raise KeyError(
+                    #     f"Failed to find predictor {id(predictor)} {predictor} in {self.predictor2name}.",
+                    # ) from e
 
                 name2traces[predictor_name].append(demo)
 
