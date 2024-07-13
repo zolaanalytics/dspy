@@ -8,10 +8,20 @@
 /docs/downloads/
 /docs/experiments/
 
+/examples/qa/hotpot/MIPRO_notebook_cache/
+/examples/nli/scone/MIPRO_notebook_cache/
+/examples/nli/scone/ScoNe/
+/examples/nli/scone/compiled_program.dspy
+/examples/qa/hotpot/compiled_program.dspy
+/ScoNe/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Vim
+*.swp
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -42,7 +52,14 @@ finetuning_ckpts/
 .idea
 assertion.log
 *.log
+<<<<<<< HEAD
 
 venv/
 cache/
 cache.db
+=======
+*.db
+/.devcontainer/.personalization.sh
+
+.mypy_cache
+>>>>>>> 525f33be6c0e610c9fdfffa2f8b61cf763fcf37c
