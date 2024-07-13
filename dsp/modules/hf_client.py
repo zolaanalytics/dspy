@@ -11,6 +11,7 @@ import requests
 
 from dsp.modules.cache_utils import CacheMemory, NotebookCacheMemory
 from dsp.modules.hf import HFModel, openai_to_hf
+from dsp.utils.settings import settings
 
 ERRORS = (Exception)
 
@@ -118,7 +119,7 @@ def send_hftgi_request_v00(arg, **kwargs):
 
 
 class HFClientVLLM(HFModel):
-    def __init__(self, model, port, model_type: Literal['chat', 'text'] = 'text', url="http://localhost", **kwargs):
+    def __init__(self, model, port, model_type: Literal['chat', 'text'] = 'text', url="http://localhost", http_request_kwargs=None, **kwargs):
         super().__init__(model=model, is_client=True)
 
         if isinstance(url, list):
@@ -132,6 +133,7 @@ class HFClientVLLM(HFModel):
         
         self.urls_const = tuple(self.urls)
         self.port = port
+        self.http_request_kwargs = http_request_kwargs or {}
         self.model_type = model_type
         self.headers = {"Content-Type": "application/json"}
         self.kwargs |= kwargs
@@ -198,6 +200,7 @@ class HFClientVLLM(HFModel):
                 port=self.port,
                 json=payload,
                 headers=self.headers,
+                **self.http_request_kwargs,
             )
 
             try:
@@ -225,6 +228,7 @@ class HFClientVLLM(HFModel):
                 port=self.port,
                 json=payload,
                 headers=self.headers,
+                **self.http_request_kwargs,
             )
 
             try:
@@ -307,11 +311,13 @@ class HFServerTGI:
         docker_process.wait()
 
 class Together(HFModel):
-    def __init__(self, model, **kwargs):
+    def __init__(self, model, api_base="https://api.together.xyz/v1", api_key=None, **kwargs):
         super().__init__(model=model, is_client=True)
         self.session = requests.Session()
-        self.api_base = os.getenv("TOGETHER_API_BASE")
-        self.token = os.getenv("TOGETHER_API_KEY")
+        self.api_base = os.getenv("TOGETHER_API_BASE") or api_base
+        assert not self.api_base.endswith("/"), "Together base URL shouldn't end with /"
+        self.token = os.getenv("TOGETHER_API_KEY") or api_key
+
         self.model = model
 
         self.use_inst_template = False
@@ -321,6 +327,7 @@ class Together(HFModel):
         stop_default = "\n\n---"
 
         self.kwargs = {
+            "model": model,
             "temperature": 0.0,
             "max_tokens": 512,
             "top_p": 1,
@@ -334,12 +341,10 @@ class Together(HFModel):
     @backoff.on_exception(
         backoff.expo,
         ERRORS,
-        max_time=1000,
+        max_time=settings.backoff_time,
         on_backoff=backoff_hdlr,
     )
     def _generate(self, prompt, use_chat_api=False, **kwargs):
-        url = f"{self.api_base}"
-
         kwargs = {**self.kwargs, **kwargs}
 
         stop = kwargs.get("stop")
@@ -367,6 +372,7 @@ class Together(HFModel):
                 "stop": stop,
             }
         else:
+            url = f"{self.api_base}/completions"
             body = {
                 "model": self.model,
                 "prompt": prompt,
@@ -384,9 +390,9 @@ class Together(HFModel):
             with self.session.post(url, headers=headers, json=body) as resp:
                 resp_json = resp.json()
                 if use_chat_api:
-                    completions = [resp_json['output'].get('choices', [])[0].get('message', {}).get('content', "")]
+                    completions = [resp_json.get('choices', [])[0].get('message', {}).get('content', "")]
                 else:
-                    completions = [resp_json['output'].get('choices', [])[0].get('text', "")]
+                    completions = [resp_json.get('choices', [])[0].get('text', "")]
                 response = {"prompt": prompt, "choices": [{"text": c} for c in completions]}
                 return response
         except Exception as e:
