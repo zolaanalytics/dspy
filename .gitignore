@@ -45,3 +45,4 @@ assertion.log
 
 venv/
 cache/
+cache.db
