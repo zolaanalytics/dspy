@@ -54,7 +54,7 @@ These optimizers extend the signature by automatically generating and including 
 
 4. **`BootstrapFewShotWithOptuna`**: Applies `BootstrapFewShot` with Optuna optimization across demonstration sets, running trials to maximize evaluation metrics and selecting the best demonstrations. 
 
-5. **`KNNFewShot`**. Selects demonstrations using the k-Nearest Neighbors algorithm. Vectorizes the examples, and finds the nearest neighbors demonstrations for a given input example. See [this notebook](https://github.com/stanfordnlp/dspy/blob/main/examples/knn.ipynb) for an example.
+5. **`KNNFewShot`**. Uses k-Nearest Neighbors algorithm to find the nearest training example demonstrations for a given input example. These nearest neighbor demonstrations are then used as the trainset for the BootstrapFewShot optimization process. See [this notebook](https://github.com/stanfordnlp/dspy/blob/main/examples/knn.ipynb) for an example.
 
 
 #### Automatic Instruction Optimization
@@ -121,6 +121,8 @@ optimized_program.save(YOUR_SAVE_PATH)
 ```
 
 The resulting file is in plain-text JSON format. It contains all the parameters and steps in the source program. You can always read it and see what the optimizer generated.
+
+You can add `save_verbose` to additionally save the list of fields with the keys, `name`, `field_type`, `description`, and `prefix` with: `optimized_program.save(YOUR_SAVE_PATH, save_field_meta=True).
 
 ### Loading a program
 
